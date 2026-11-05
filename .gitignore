@@ -1,0 +1,21 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build output
+dist/
+out/
+bundle/
+*.zip
+
+# Python
+__pycache__/
+
+# Editors / OS
+.idea
+.vscode/settings.json
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

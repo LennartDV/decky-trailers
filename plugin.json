@@ -1,0 +1,11 @@
+{
+  "name": "Decky Trailers",
+  "author": "Decky Trailers contributors",
+  "flags": [],
+  "api_version": 1,
+  "publish": {
+    "tags": ["library", "trailer", "hero", "video"],
+    "description": "Fades the hero artwork on a game's library page into its Steam store trailer, then back to the hero when the trailer ends.",
+    "image": "https://opengraph.githubassets.com/1/SteamDeckHomebrew/decky-loader"
+  }
+}
