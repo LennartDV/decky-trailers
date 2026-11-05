@@ -12,6 +12,7 @@ import {
 import { FC } from "react";
 
 const spliceTrailerItem = (children: any[], appid: number) => {
+  if (!appid || isNaN(appid)) return;
   const propertiesMenuItemIdx = children.findIndex((item) =>
     findInReactTree(item, (x) => x?.onSelected && x.onSelected.toString().includes("AppProperties"))
   );

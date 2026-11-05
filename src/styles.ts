@@ -3,6 +3,7 @@ export const PLUGIN_STYLES = `
 .decky-trailer-host {
   position: relative !important;
   overflow: hidden !important;
+  isolation: isolate !important;
 }
 
 .decky-trailer-video {
@@ -15,7 +16,7 @@ export const PLUGIN_STYLES = `
   opacity: 0 !important;
   transition: opacity var(--decky-trailer-fade-duration, 1s) ease-in-out !important;
   z-index: 1 !important;
-  background: #000 !important;
+  background: transparent !important;
 }
 
 .decky-trailer-video.decky-trailer-visible {
@@ -32,21 +33,18 @@ export const PLUGIN_STYLES = `
 }
 
 /* Trailer Selection Page (SteamGridDB style) */
-.decky-trailers-page {
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+.decky-trailers-page-container {
+  margin-top: var(--basicui-header-height, 40px);
+  height: calc(100vh - var(--basicui-header-height, 40px));
   background: var(--gpSystemDarkestGrey, #0e141b);
   color: #fff;
   display: flex;
   flex-direction: column;
-  z-index: 999;
   box-sizing: border-box;
 }
 
-.decky-trailers-header {
-  padding: 24px 40px 16px 40px;
+.decky-trailers-header-bar {
+  padding: 20px 40px 16px 40px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   align-items: center;
@@ -54,23 +52,28 @@ export const PLUGIN_STYLES = `
 }
 
 .decky-trailers-title {
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 700;
   color: #fff;
 }
 
 .decky-trailers-subtitle {
-  font-size: 14px;
+  font-size: 13px;
   color: rgba(255, 255, 255, 0.6);
   margin-top: 4px;
+}
+
+.decky-trailers-quick-actions {
+  display: flex;
+  gap: 12px;
+  padding: 16px 40px 0 40px;
 }
 
 .decky-trailers-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 20px;
-  padding: 24px 40px 60px 40px;
-  overflow-y: auto;
+  padding: 20px 40px 80px 40px;
 }
 
 .decky-trailer-card {
@@ -81,15 +84,14 @@ export const PLUGIN_STYLES = `
   transition: border-color 0.15s ease, transform 0.15s ease, background-color 0.15s ease;
   display: flex;
   flex-direction: column;
-  cursor: pointer;
 }
 
 .decky-trailer-card:focus,
-.decky-trailer-card.gpfocus {
-  border-color: #1a9fff;
+.decky-trailer-card.gpfocus,
+.decky-trailer-card:focus-within {
+  border-color: #1a9fff !important;
   transform: scale(1.02);
   background: rgba(255, 255, 255, 0.1);
-  outline: none;
 }
 
 .decky-trailer-card.active {
@@ -167,6 +169,8 @@ export function injectStyles(): () => void {
     el.id = ID;
     el.textContent = PLUGIN_STYLES;
     document.head.appendChild(el);
+  } else {
+    el.textContent = PLUGIN_STYLES;
   }
   return () => {
     el?.remove();

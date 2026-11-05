@@ -2,14 +2,21 @@ import { getConfig, getChoice, setLastAppId } from "./settings";
 import { getTrailers, resolveTrailer } from "./trailers";
 import { playTrailer, PlaybackSession } from "./player";
 
-function extractAppIdFromUrl(url: string): number | null {
+interface HeroCandidate {
+  appId: number;
+  element: HTMLElement;
+  score: number;
+}
+
+function extractAppIdFromText(text: string): number | null {
   const patterns = [
-    /\/(?:routes\/)?library\/app\/(\d+)/i,
-    /\/library\/app\/(\d+)/i,
-    /\/app\/(\d+)/i,
+    /(?:steam\/apps|store_item_assets\/steam\/apps|steamcommunity\/public\/images\/apps|\/assets)\/(\d{1,10})(?:\/|$|[._?])/i,
+    /\/customimages\/(\d{1,10})(?:[a-z_]*)(?:[._/?#-]|$)/i,
+    /(?:routes\/)?library\/(?:app\/)?(\d{1,10})/i,
+    /\/app\/(\d{1,10})/i,
   ];
   for (const p of patterns) {
-    const match = url.match(p);
+    const match = text.match(p);
     if (match?.[1]) {
       const id = parseInt(match[1], 10);
       if (id > 0) return id;
@@ -18,41 +25,55 @@ function extractAppIdFromUrl(url: string): number | null {
   return null;
 }
 
-function findHeroElement(): HTMLElement | null {
-  // 1. Check for standard Steam Big Picture / Gamepad UI hero containers
+function findHeroCandidate(): HeroCandidate | null {
   const selectors = [
-    '[class*="TopCapsule"]',
-    '[class*="HeaderBackgroundImage"]',
-    '[class*="appdetailsheader_TopCapsule"]',
-    '[class*="appdetailsheader_ImgContainer"]',
-    '[class*="appdetailsheader_HeaderBackgroundImage"]',
+    "[style*='steam/apps']",
+    "[style*='store_item_assets']",
+    "[style*='/customimages/']",
+    "[style*='library_hero']",
+    "img[src*='steam/apps']",
+    "img[src*='store_item_assets']",
+    "img[src*='/customimages/']",
+    "img[src*='library_hero']",
+    "[class*='TopCapsule']",
+    "[class*='HeaderBackgroundImage']",
   ];
 
-  for (const sel of selectors) {
-    const el = document.querySelector(sel) as HTMLElement | null;
-    if (el && el.getBoundingClientRect().height > 120) {
-      return el;
+  const nodes = Array.from(document.querySelectorAll<HTMLElement>(selectors.join(",")));
+  let best: HeroCandidate | null = null;
+
+  for (const node of nodes) {
+    const assetText = [
+      node.getAttribute("style") || "",
+      node.getAttribute("src") || "",
+      window.getComputedStyle(node).backgroundImage || "",
+      node.className || "",
+    ].join(" ");
+
+    const appId = extractAppIdFromText(assetText);
+    if (!appId) continue;
+
+    const target = node.tagName === "IMG" ? node.parentElement : node;
+    if (!(target instanceof HTMLElement)) continue;
+
+    const rect = target.getBoundingClientRect();
+    // Verify it is a large banner in the upper part of the screen
+    if (rect.width < 250 || rect.height < 100 || rect.top > window.innerHeight * 0.6) {
+      continue;
+    }
+
+    // Score based on hero keywords and size
+    let score = rect.width * rect.height;
+    const lower = assetText.toLowerCase();
+    if (lower.includes("library_hero") || lower.includes("topcapsule")) score += 500000;
+    if (lower.includes("customimages") && lower.includes("_hero")) score += 600000;
+
+    if (!best || score > best.score) {
+      best = { appId, element: target, score };
     }
   }
 
-  // 2. Scan for background images or images containing library_hero or steam/apps
-  const candidates = Array.from(
-    document.querySelectorAll<HTMLElement>(
-      "div[style*='library_hero'], div[style*='steam/apps'], div[style*='customimages'], img[src*='library_hero']"
-    )
-  );
-
-  for (const el of candidates) {
-    const target = el.tagName === "IMG" ? el.parentElement : el;
-    if (target) {
-      const rect = target.getBoundingClientRect();
-      if (rect.width >= 300 && rect.height >= 120 && rect.top < window.innerHeight / 2) {
-        return target;
-      }
-    }
-  }
-
-  return null;
+  return best;
 }
 
 export class HeroController {
@@ -75,7 +96,6 @@ export class HeroController {
       attributeFilter: ["style", "src", "class"],
     });
 
-    // Listen for Steam GameSession launch notifications to pause during gaming
     try {
       const unreg = (window as any).SteamClient?.GameSessions?.RegisterForAppLifetimeNotifications?.(
         (e: { bRunning?: boolean }) => {
@@ -136,11 +156,9 @@ export class HeroController {
       return;
     }
 
-    const currentUrl = window.location.href;
-    const appId = extractAppIdFromUrl(currentUrl);
-
-    // If we left the game page, clean up and reset other played states when switching
-    if (!appId) {
+    const hero = findHeroCandidate();
+    if (!hero) {
+      // Left the game details page
       if (this.currentAppId !== null) {
         this.cleanupPlayback();
         this.currentAppId = null;
@@ -148,85 +166,67 @@ export class HeroController {
       return;
     }
 
+    const { appId, element: heroEl } = hero;
     setLastAppId(appId);
 
-    // If switched to a new game, reset playback
+    // If navigated to another game, reset played state so it will play on next visit
     if (this.currentAppId !== appId) {
       this.cleanupPlayback();
       this.currentAppId = appId;
-      // Allow playing for this newly visited game
       this.playedApps.delete(appId);
     }
 
-    // If already played for this visit, respect "stays that way until reset"
+    // "when the (only 1) trailer ends it fades back into the hero and stays that way until reset (by going to another game and back)"
     if (this.playedApps.has(appId)) {
       return;
     }
 
-    // If already playing or waiting on timer for this element, do nothing
+    // Already playing or in delay countdown
     if (this.currentSession || this.delayTimer) {
       return;
     }
-
-    const heroEl = findHeroElement();
-    if (!heroEl) return;
 
     this.currentHost = heroEl;
     heroEl.classList.add("decky-trailer-host");
     heroEl.style.setProperty("--decky-trailer-fade-duration", `${config.fadeDuration ?? 1}s`);
 
-    // Look up trailers
     const trailers = await getTrailers(appId);
     if (this.currentAppId !== appId || !trailers.length) {
-      return; // No trailers on store page -> keep standard hero
+      return;
     }
 
     const choice = getChoice(appId);
     const selectedTrailer = resolveTrailer(trailers, choice);
     if (!selectedTrailer) {
-      return; // Choice was "none" or no trailer available
+      return;
     }
 
-    // Step 1: Wait initial 2 seconds showing the hero art
     const delayMs = Math.max(0, (config.heroDelay ?? 2) * 1000);
-
     const videoEl = document.createElement("video");
     videoEl.className = "decky-trailer-video";
     heroEl.appendChild(videoEl);
 
     let isDelayDone = false;
-    let isVideoReady = false;
-
-    const tryStartTransition = () => {
-      if (isDelayDone && isVideoReady && this.currentSession) {
-        videoEl.play().catch(() => {
-          /* autoplay restrictions */
-        });
-        videoEl.classList.add("decky-trailer-visible");
-      }
-    };
 
     const session = playTrailer(
       videoEl,
       selectedTrailer,
       config,
-      // onEnded handler
+      // onEnded
       () => {
-        // Fade back to the hero and stay that way until reset!
         videoEl.classList.remove("decky-trailer-visible");
         this.playedApps.add(appId);
-
-        // After fade out completes, pause and clean up session
         window.setTimeout(() => {
           if (this.currentAppId === appId) {
             videoEl.pause();
           }
         }, (config.fadeDuration ?? 1) * 1000);
       },
-      // onReady handler
+      // onReady
       () => {
-        isVideoReady = true;
-        tryStartTransition();
+        if (isDelayDone && this.currentSession) {
+          videoEl.classList.add("decky-trailer-visible");
+        }
       }
     );
 
@@ -235,7 +235,9 @@ export class HeroController {
     this.delayTimer = window.setTimeout(() => {
       this.delayTimer = undefined;
       isDelayDone = true;
-      tryStartTransition();
+      if (this.currentSession) {
+        videoEl.classList.add("decky-trailer-visible");
+      }
     }, delayMs);
   }
 }
