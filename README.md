@@ -33,7 +33,7 @@ Once you push this project to GitHub and tag a release (or use your pre-built re
 4. In the Developer menu, choose **Install plugin from URL** (or **Install from URL**).
 5. Paste your release ZIP URL:
    ```
-   https://github.com/<YOUR_GITHUB_USERNAME>/<YOUR_REPO_NAME>/releases/latest/download/decky-trailers.zip
+   https://github.com/LennartDV/decky-trailers/releases/latest/download/decky-trailers.zip
    ```
 6. Press **Install**. Decky Loader will download, extract, and start **Decky Trailers** immediately!
 
@@ -71,7 +71,7 @@ To host this add-on on GitHub so you have a direct link for Developer Mode:
    git add .
    git commit -m "Initial commit of Decky Trailers"
    git branch -M main
-   git remote add origin https://github.com/<YOUR_GITHUB_USERNAME>/decky-trailers.git
+   git remote add origin https://github.com/LennartDV/decky-trailers.git
    git push -u origin main
    ```
 3. To trigger an automated release with the installable ZIP:
@@ -82,7 +82,7 @@ To host this add-on on GitHub so you have a direct link for Developer Mode:
 4. The included GitHub Actions workflow (`.github/workflows/release.yml`) will automatically run, build the plugin, package `decky-trailers.zip`, and publish it under GitHub Releases!
 5. Your install link will then be:
    ```
-   https://github.com/<YOUR_GITHUB_USERNAME>/decky-trailers/releases/latest/download/decky-trailers.zip
+   https://github.com/LennartDV/decky-trailers/releases/latest/download/decky-trailers.zip
    ```
 
 ---

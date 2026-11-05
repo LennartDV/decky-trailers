@@ -16,8 +16,16 @@
     "trailer",
     "hero"
   ],
-  "author": "Decky Trailers contributors",
+  "author": "LennartDV",
   "license": "GPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LennartDV/decky-trailers.git"
+  },
+  "bugs": {
+    "url": "https://github.com/LennartDV/decky-trailers/issues"
+  },
+  "homepage": "https://github.com/LennartDV/decky-trailers#readme",
   "devDependencies": {
     "@decky/rollup": "^1.0.2",
     "@decky/ui": "^4.16.5",
